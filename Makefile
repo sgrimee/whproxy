@@ -16,15 +16,13 @@ NO_CACHE ?= false
 default: build
 
 test: 
-	go get -t
 	go test
 
 build:
-	go get
-	go build -ldflags "-X main.version=`git describe --tags`"
+	go build -i -ldflags "-X main.version=`git describe --tags`"
 
 build_linux:
-	TODO
+	env GOOS=linux GOARCH=amd64 go build -o $(NAME)_linux
 
 image: test build_linux
 	$(DOCKERCMD) build --no-cache=$(NO_CACHE) --rm -t $(NS)/$(REPO):$(VERSION) .
