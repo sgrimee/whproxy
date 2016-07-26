@@ -15,11 +15,15 @@ const (
 	webhooksPath = "webhooks"
 )
 
+// acceptable json to foward
+// Fully open for now
+type HookMsg interface{}
+
 // hookServe hanles an incoming webhook by reading json from it and
 // passing it on to the corresponding open websocket
 // then the webhook connection is closed
 func hookServe(hw http.ResponseWriter, r *http.Request) {
-	log.Printf("Incoming webhook: %q\n", html.EscapeString(r.URL.Path))
+	log.Printf("Incoming webhook from %s: %q\n", r.RemoteAddr, html.EscapeString(r.URL.Path))
 	id := r.URL.Path[len("/"+webhooksPath+"/"):]
 	var ws *websocket.Conn
 	var ok bool
@@ -41,8 +45,9 @@ func hookServe(hw http.ResponseWriter, r *http.Request) {
 	if err := r.Body.Close(); err != nil {
 		panic(err)
 	}
-	var message HookMsg
-	if err := json.Unmarshal(body, &message); err != nil {
+	// we parse the message as a means of validating its json
+	var hm HookMsg
+	if err := json.Unmarshal(body, &hm); err != nil {
 		log.Printf("Invalid json on webhook %s: %s", id, err)
 		hw.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		hw.WriteHeader(422) // unprocessable entity
@@ -51,10 +56,13 @@ func hookServe(hw http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	log.Printf("Received json on webhook %s: %+v", id, message)
-	// proxy message to websocket
+	log.Printf("Received json on webhook %s: %+v", id, hm)
+	// proxy hook message to websocket in 'data' field of a json
+	var ev SocketEvent
+	ev.Data = hm
+
 	hw.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	if err = json.NewEncoder(ws).Encode(message); err != nil {
+	if err = json.NewEncoder(ws).Encode(ev); err != nil {
 		log.Printf("Could not send proxied json from %s to websocket: %s", id, err)
 		delete(hooks, id)
 		hw.WriteHeader(http.StatusNotFound)

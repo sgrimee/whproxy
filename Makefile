@@ -21,7 +21,7 @@ test:
 
 build:
 	go get
-	go build
+	go build -ldflags "-X main.version=`git describe --tags`"
 
 build_linux:
 	TODO

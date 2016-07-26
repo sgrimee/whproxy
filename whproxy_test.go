@@ -13,8 +13,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	server.Host = "localhost"
-	server.Port = 9876
+	config.Host = "localhost"
+	config.Port = 9876
+	config.Validate = false
 	go ListenAndServe()
 	os.Exit(m.Run())
 }
@@ -22,20 +23,20 @@ func TestMain(m *testing.M) {
 // opening a websocket should return a webhook url
 func TestGetHookUrl(t *testing.T) {
 	origin := "http://localhost/"
-	url := fmt.Sprintf("ws://%s:%d/%s", server.Host, server.Port, websocketPath)
+	url := fmt.Sprintf("ws://%s:%d/%s", config.Host, config.Port, websocketPath)
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// decode one message from the stream
-	var r OpenHookResponse
+	var r SocketResponse
 	websocket.JSON.Receive(ws, &r)
 	t.Logf("Received webhook URL: %s\n", r.Url)
 	if !strings.HasPrefix(r.Url, "http") {
 		t.Fatal("Invalid webhook url: %s", r.Url)
 	}
 	// make sure hook is removed and only after closing the websocket
-	url = fmt.Sprintf("http://%s:%d/%s", server.Host, server.Port, healthzPath)
+	url = fmt.Sprintf("http://%s:%d/%s", config.Host, config.Port, healthzPath)
 	var sr *HealthzResponse
 	if sr, err = getHealthz(url); err != nil {
 		t.Fatal(err)
@@ -55,43 +56,37 @@ func TestGetHookUrl(t *testing.T) {
 // ensure valid json sent to webhook comes into websocket
 func TestProxy(t *testing.T) {
 	origin := "http://localhost/"
-	url := fmt.Sprintf("ws://%s:%d/%s", server.Host, server.Port, websocketPath)
+	url := fmt.Sprintf("ws://%s:%d/%s", config.Host, config.Port, websocketPath)
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		t.Fatal(err)
 	}
 	dec := json.NewDecoder(ws)
-	// decode one message from the stream
-	var r OpenHookResponse
+	// decode inital response on websocket
+	var r SocketResponse
 	if err := dec.Decode(&r); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Received webhook URL: %s\n", r.Url)
+	t.Log("Received webhook URL: ", r.Url)
 	if !strings.HasPrefix(r.Url, "http") {
-		t.Fatal("Invalid webhook url: %s", r.Url)
+		t.Fatal("Invalid webhook url: ", r.Url)
 	}
 	// send json on webhook
-	type testMsg struct {
-		A string
-	}
-	sMsg := testMsg{A: "test"}
-	b := new(bytes.Buffer)
-	if err := json.NewEncoder(b).Encode(sMsg); err != nil {
-		panic(err)
-	}
-	t.Log("Sending json on webhook: %s", b.String())
-	res, err := http.Post(r.Url, "application/json; charset=utf-8", b)
+	b := []byte(`{"test": "abc123"}`)
+	t.Log("Sending json on webhook: ", string(b[:]))
+	res, err := http.Post(r.Url, "application/json; charset=utf-8", bytes.NewReader(b))
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		t.Fatal("Error when POSTing test json: %s", res.Status)
+		t.Fatal("Error when POSTing test json: ", res.Status)
 	}
 	// expect same json incoming on websocket
-	var rMsg testMsg
+	var rMsg SocketEvent
 	if err := dec.Decode(&rMsg); err != nil {
-		t.Fatal("Error decoding json from webhook: ", err)
+		t.Fatal("Error decoding json from websocket: ", err)
 	}
-	t.Logf("Received message on webhook: %+v\n", rMsg)
-	if rMsg != sMsg {
-		t.Fatal("Received message is not what was sent: %+v (%T)", rMsg, rMsg)
+	t.Logf("Received event on websocket: %+v\n", rMsg)
+	var m map[string]interface{} = rMsg.Data.(map[string]interface{})
+	if m["test"] != "abc123" {
+		t.Fatalf("Received message differs from expected: %+v (%T)\n", m, m)
 	}
 }

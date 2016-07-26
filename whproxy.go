@@ -9,13 +9,18 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-type Server struct {
-	Host string
-	Port int
+var (
+	version string
+)
+
+type Config struct {
+	Host     string
+	Port     int
+	Validate bool
 }
 
 var (
-	server Server
+	config Config
 	hooks  map[string]*websocket.Conn
 )
 
@@ -24,9 +29,15 @@ func init() {
 }
 
 func main() {
-	flag.StringVar(&server.Host, "host", "localhost", "hostname for the webhook server")
-	flag.IntVar(&server.Port, "port", 12345, "port for the webhook server")
+	flag.StringVar(&config.Host, "host", "localhost", "hostname for the webhook server")
+	flag.IntVar(&config.Port, "port", 12345, "port for the webhook server")
+	flag.BoolVar(&config.Validate, "validate", false, "validate signature of incoming webhooks (WIP)")
+	showVer := flag.Bool("version", false, "show server version and exit")
 	flag.Parse()
+	if *showVer {
+		fmt.Println("Version: ", version)
+		return
+	}
 	ListenAndServe()
 }
 
@@ -35,6 +46,6 @@ func ListenAndServe() {
 	http.HandleFunc("/"+webhooksPath+"/", hookServe)
 	http.HandleFunc("/"+healthzPath, healthzServe)
 
-	log.Printf("Server starting on %s:%d\n", server.Host, server.Port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", server.Port), nil))
+	log.Printf("Server starting on %s:%d\n", config.Host, config.Port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), nil))
 }
