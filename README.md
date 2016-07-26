@@ -13,6 +13,10 @@ At the moment the same port is used for webhooks and websockets.
 Then establish a websocket connection to my.publichost.com:12345 and you will receive a json payload with the URL of your private webhook endpoint.
 Incoming webhooks events are passed on to the websocket, encapsulated inside the 'data' field of the json object.
 
+## Docker
+
+```docker run -it -p 12345:12345 quay.io/sgrimee/whproxy -host my.docker.host```
+
 ## Status
 
 Work in progress, functional, barely tested.

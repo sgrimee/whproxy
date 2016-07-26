@@ -1,4 +1,4 @@
-FROM alpine:3.4
+FROM scratch
 MAINTAINER Sam Grimee <sgrimee gmail.com>
 ADD whproxy_linux /whproxy
-ENTRYPOINT /whproxy
+ENTRYPOINT ["/whproxy"]

@@ -1,4 +1,4 @@
-NS ?= quay.io
+NS ?= quay.io/sgrimee
 REPO = whproxy
 
 NAME = $(REPO)
@@ -22,7 +22,7 @@ build:
 	go build -i -ldflags "-X main.version=`git describe --tags`"
 
 build_linux:
-	env GOOS=linux GOARCH=amd64 go build -o $(NAME)_linux
+	env GOOS=linux GOARCH=amd64 go build -o $(NAME)_linux -i -ldflags "-X main.version=`git describe --tags`"
 
 image: test build_linux
 	$(DOCKERCMD) build --no-cache=$(NO_CACHE) --rm -t $(NS)/$(REPO):$(VERSION) .
