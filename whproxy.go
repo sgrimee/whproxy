@@ -14,8 +14,11 @@ var (
 )
 
 type Config struct {
-	Host     string
-	Port     int
+	CertFile,
+	KeyFile,
+	Host string
+	Port,
+	SSLPort int
 	Validate bool
 }
 
@@ -24,8 +27,10 @@ var (
 )
 
 func main() {
-	flag.StringVar(&config.Host, "host", "localhost", "hostname for the webhook server")
+	flag.StringVar(&config.CertFile, "cert", "", "certificate file")
+	flag.StringVar(&config.KeyFile, "key", "", "key file")
 	flag.IntVar(&config.Port, "port", 12345, "port for the webhook server")
+	flag.IntVar(&config.SSLPort, "sslport", 12346, "SSL port for the webhook server")
 	flag.BoolVar(&config.Validate, "validate", false, "validate signature of incoming webhooks (WIP)")
 	showVer := flag.Bool("version", false, "show server version and exit")
 	flag.Parse()
@@ -37,10 +42,22 @@ func main() {
 }
 
 func ListenAndServe() {
+	var errs = make(chan error)
+
 	http.Handle("/"+websocketPath, websocket.Handler(wsServe))
 	http.HandleFunc("/"+webhooksPath+"/", hookServe)
 	http.HandleFunc("/"+healthzPath, healthzServe)
 
-	log.Printf("Server starting on %s:%d\n", config.Host, config.Port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), nil))
+	go func() {
+		log.Printf("Server starting on %s:%d\n", config.Host, config.Port)
+		errs <- http.ListenAndServe(fmt.Sprintf(":%d", config.Port), nil)
+	}()
+	if (config.CertFile != "") && (config.KeyFile != "") {
+		go func() {
+			log.Printf("SSL Server starting on %s:%d\n", config.Host, config.SSLPort)
+			errs <- http.ListenAndServeTLS(fmt.Sprintf(":%d", config.SSLPort),
+				config.CertFile, config.KeyFile, nil)
+		}()
+	}
+	log.Fatal(<-errs) // block until one of the servers exits
 }
