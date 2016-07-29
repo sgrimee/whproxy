@@ -27,7 +27,7 @@ type SocketResponse struct {
 // The websocket is kept open so incoming webhook data can be proxied to it
 func wsServe(ws *websocket.Conn) {
 	id := NewUid()
-	hooks[id] = ws // keep track of open sessions
+	setConn(id, ws) // keep track of open sessions
 	// send private webhook endpoint to client
 	data := SocketResponse{Url: fmt.Sprintf("http://%s:%d/%s/%s",
 		config.Host, config.Port, webhooksPath, id)}
@@ -38,6 +38,6 @@ func wsServe(ws *websocket.Conn) {
 	for _, err := ws.Read(msg); err == nil; time.Sleep(1 * time.Second) {
 	}
 	log.Printf("Releasing websocket: %s\n", id)
-	delete(hooks, id)
+	deleteConn(id)
 	ws.Close()
 }

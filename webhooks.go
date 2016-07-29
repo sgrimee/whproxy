@@ -27,14 +27,14 @@ func hookServe(hw http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/"+webhooksPath+"/"):]
 	var ws *websocket.Conn
 	var ok bool
-	if ws, ok = hooks[id]; !ok {
+	if ws, ok = conn(id); !ok {
 		log.Printf("Error: webhook %s not found.\n", id)
 		hw.WriteHeader(http.StatusNotFound)
 		return
 	}
 	if ws == nil {
 		log.Printf("Error: webhook %s points to invalid websocket.\n", id)
-		delete(hooks, id)
+		deleteConn(id)
 		hw.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -64,7 +64,7 @@ func hookServe(hw http.ResponseWriter, r *http.Request) {
 	hw.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if err = json.NewEncoder(ws).Encode(ev); err != nil {
 		log.Printf("Could not send proxied json from %s to websocket: %s", id, err)
-		delete(hooks, id)
+		deleteConn(id)
 		hw.WriteHeader(http.StatusNotFound)
 	}
 	hw.WriteHeader(http.StatusOK)

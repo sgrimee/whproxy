@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 )
 
@@ -18,11 +17,10 @@ type HealthzResponse struct {
 // healthzServe returns infos on running server
 // currently the number of currently open hooks
 func healthzServe(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Open hooks: %+v", hooks)
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	s := &HealthzResponse{
-		NbOpenHooks: len(hooks),
+		NbOpenHooks: connCount(),
 	}
 	if err := json.NewEncoder(w).Encode(s); err != nil {
 		panic(err)

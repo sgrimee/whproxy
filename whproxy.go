@@ -21,12 +21,7 @@ type Config struct {
 
 var (
 	config Config
-	hooks  map[string]*websocket.Conn
 )
-
-func init() {
-	hooks = make(map[string]*websocket.Conn)
-}
 
 func main() {
 	flag.StringVar(&config.Host, "host", "localhost", "hostname for the webhook server")
