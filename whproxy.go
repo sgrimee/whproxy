@@ -29,6 +29,7 @@ var (
 func main() {
 	flag.StringVar(&config.CertFile, "cert", "", "certificate file")
 	flag.StringVar(&config.KeyFile, "key", "", "key file")
+	flag.StringVar(&config.Host, "host", "localhost", "hostname for webhook url")
 	flag.IntVar(&config.Port, "port", 12345, "port for the webhook server")
 	flag.IntVar(&config.SSLPort, "sslport", 12346, "SSL port for the webhook server")
 	flag.BoolVar(&config.Validate, "validate", false, "validate signature of incoming webhooks (WIP)")

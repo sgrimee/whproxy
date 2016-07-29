@@ -30,8 +30,10 @@ If you use self-signed certificates, be sure to enable cert pinning on the clien
 
 If you use certificates, mount them with
 
+```
     docker run -it -p 12345:12345 -p 12346:12346 \
-      -v cert.pem:/cert.pem -v key.unencrypted.pem:/key.pem \
+      -v $(pwd)/cert.pem:/cert.pem \
+      -v $(pwd)/key.unencrypted.pem:/key.pem \
       quay.io/sgrimee/whproxy -host my.docker.host -cert /cert.pem -key /key.pem
-
+```
 
