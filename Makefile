@@ -5,7 +5,7 @@ NAME = $(REPO)
 
 DOCKERCMD ?= docker
 
-VERSION ?= $(shell git describe --tags)
+VERSION ?= $(shell git describe --abbrev=0 HEAD --tags)
 
 current_dir = $(shell pwd)
 
