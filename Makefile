@@ -5,7 +5,7 @@ NAME = $(REPO)
 
 DOCKERCMD ?= docker
 
-VERSION ?= $(BRANCH)
+VERSION ?= $(shell git describe --tags)
 
 current_dir = $(shell pwd)
 
@@ -19,10 +19,10 @@ test:
 	go test
 
 build:
-	go build -i -ldflags "-X main.version=`git describe --tags`"
+	go build -i -ldflags "-X main.version=$(VERSION)"
 
 build_linux:
-	env GOOS=linux GOARCH=amd64 go build -o $(NAME)_linux -i -ldflags "-X main.version=`git describe --tags`"
+	env GOOS=linux GOARCH=amd64 go build -o $(NAME)_linux -i -ldflags "-X main.version=$(VERSION)"
 
 image: test build_linux
 	$(DOCKERCMD) build --no-cache=$(NO_CACHE) --rm -t $(NS)/$(REPO):$(VERSION) .
