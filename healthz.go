@@ -20,7 +20,7 @@ func healthzServe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	s := &HealthzResponse{
-		NbOpenHooks: connCount(),
+		NbOpenHooks: sessionsCount(),
 	}
 	if err := json.NewEncoder(w).Encode(s); err != nil {
 		panic(err)

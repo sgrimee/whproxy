@@ -25,19 +25,21 @@ type SocketResponse struct {
 
 // wsServe gemerates a private webhook endpoint for each incoming websocket
 // The websocket is kept open so incoming webhook data can be proxied to it
-func wsServe(ws *websocket.Conn) {
+func wsServe(c *websocket.Conn) {
+	defer c.Close()
 	id := NewUid()
-	setConn(id, ws) // keep track of open sessions
+	secret := []byte(NewUid())
+	setSession(id, Session{c, secret})
+	defer deleteSession(id)
 	// send private webhook endpoint to client
-	data := SocketResponse{Url: fmt.Sprintf("http://%s:%d/%s/%s",
-		config.Host, config.Port, webhooksPath, id)}
-	log.Printf("Incoming websocket from %s, sending: %+v\n", ws.Request().RemoteAddr, data)
-	websocket.JSON.Send(ws, data)
+	data := SocketResponse{
+		Url:    fmt.Sprintf("%s://%s:%d/%s/%s", scheme, config.Host, config.Port, webhooksPath, id),
+		Secret: string(secret),
+	}
+	log.Printf("Incoming websocket from %s, sending: %+v\n", c.Request().RemoteAddr, data)
+	websocket.JSON.Send(c, data)
 	// read forever on websocket to keep it open
 	var msg []byte
-	for _, err := ws.Read(msg); err == nil; time.Sleep(1 * time.Second) {
+	for _, err := c.Read(msg); err == nil; time.Sleep(1 * time.Second) {
 	}
-	log.Printf("Releasing websocket: %s\n", id)
-	deleteConn(id)
-	ws.Close()
 }

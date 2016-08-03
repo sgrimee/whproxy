@@ -1,40 +1,48 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"html"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"golang.org/x/net/websocket"
 )
 
 const (
 	webhooksPath = "webhooks"
 )
 
-// acceptable json to foward
-// Fully open for now
-type HookMsg interface{}
-
 // hookServe hanles an incoming webhook by reading json from it and
 // passing it on to the corresponding open websocket
 // then the webhook connection is closed
 func hookServe(hw http.ResponseWriter, r *http.Request) {
 	log.Printf("Incoming webhook from %s: %q\n", r.RemoteAddr, html.EscapeString(r.URL.Path))
+	hSig := r.Header.Get("X-Spark-Signature")
+	sig, err := hex.DecodeString(hSig)
+	if err != nil {
+		log.Printf("Unable to decode signature: %q", hSig)
+		hw.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+	if config.Validate && sig == nil {
+		log.Println("Discarding webhook because non hex or missing X-Spark-Signature and Validation mode is on")
+		hw.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+	log.Printf("  with signature: %q\n", sig)
 	id := r.URL.Path[len("/"+webhooksPath+"/"):]
-	var ws *websocket.Conn
+	var s Session
 	var ok bool
-	if ws, ok = conn(id); !ok {
+	if s, ok = session(id); !ok {
 		log.Printf("Error: webhook %s not found.\n", id)
 		hw.WriteHeader(http.StatusNotFound)
 		return
 	}
-	if ws == nil {
+	if s.Connection == nil {
 		log.Printf("Error: webhook %s points to invalid websocket.\n", id)
-		deleteConn(id)
+		deleteSession(id)
 		hw.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -44,6 +52,12 @@ func hookServe(hw http.ResponseWriter, r *http.Request) {
 	}
 	if err := r.Body.Close(); err != nil {
 		panic(err)
+	}
+	log.Printf("Body: \n%s\n", body)
+	if config.Validate && !validSignature(body, sig, s.Secret) {
+		log.Println("Discarding webhook because X-Spark-Signature is not valid.")
+		hw.WriteHeader(http.StatusNotAcceptable)
+		return
 	}
 	// we parse the message as a means of validating its json
 	var hm HookMsg
@@ -62,9 +76,9 @@ func hookServe(hw http.ResponseWriter, r *http.Request) {
 	ev.Data = hm
 
 	hw.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	if err = json.NewEncoder(ws).Encode(ev); err != nil {
+	if err = json.NewEncoder(s.Connection).Encode(ev); err != nil {
 		log.Printf("Could not send proxied json from %s to websocket: %s", id, err)
-		deleteConn(id)
+		deleteSession(id)
 		hw.WriteHeader(http.StatusNotFound)
 	}
 	hw.WriteHeader(http.StatusOK)
